@@ -22,7 +22,7 @@ services:
         condition: any
 
 volumes:
-  tls_letsencrypt_volume:
+  tls_volume:
     name: "tls_volume"
 
 secrets:
