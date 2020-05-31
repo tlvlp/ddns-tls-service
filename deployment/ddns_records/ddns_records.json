@@ -1,0 +1,16 @@
+[
+  {
+    "registrar": "GODADDY",
+    "apiKey": "myapikey1",
+    "domain": "mydomain1.com",
+    "type": "A",
+    "name": "@"
+  },
+  {
+    "registrar": "GODADDY",
+    "apiKey": "myapikey2",
+    "domain": "mydomain2.com",
+    "type": "A",
+    "name": "@"
+  }
+]
