@@ -48,11 +48,11 @@ public class DNSUpdaterService {
             log.debug("Running DDNS check.");
             String hostIp = getHostExternalIp();
             if(hostIp.equals(previousIp) && !event.isUpdateForced()) {
-                log.debug("Host IP matches previously saved IP. No update required.");
+                log.debug(String.format("Host IP matches previously saved IP(%s). No update required.", hostIp));
                 return;
             }
-            previousIp = hostIp;
             recordService.getDdnsRecords().forEach(record -> checkAndUpdateRecord(record, hostIp));
+            previousIp = hostIp;
         } catch (Exception e) {
             log.error("Unable to complete DDNS check: " + e.getMessage());
         }
@@ -78,10 +78,11 @@ public class DNSUpdaterService {
             RegistrarHandler registrarHandler = record.getRegistrar().getHandler();
             String ipAtRegistrar = registrarHandler.getRecordContent(record);
             if(hostIp.equals(ipAtRegistrar)) {
-                log.debug("Host IP matches record IP at registrar. No update required.");
+                log.debug(String.format("Host IP(%s) matches record IP at registrar. No update required.", hostIp));
                 return;
             }
             registrarHandler.replaceRecordContent(record, hostIp);
+            log.info(String.format("Record at registrar updated with the host IP(%s -> %s): %s",ipAtRegistrar, hostIp, record));
         } catch (Exception e) {
             log.error(String.format("Unable to complete scheduled DDNS check or update for record: %s%n", record), e);
         }

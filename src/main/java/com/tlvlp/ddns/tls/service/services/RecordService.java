@@ -48,8 +48,8 @@ public class RecordService {
                 log.info("File change detected - Updating records");
                 ddnsRecords = updatedRecordsFromFile(Files.newInputStream(recordsFilePath));
                 recordsFileHash = currentHash;
-                log.info("Records updated from file");
-                ddnsRecords.forEach(record -> log.debug("Updated record: " + record));
+                log.info("Updated records:");
+                ddnsRecords.forEach(record -> log.info(record.toString()));
                 publisher.publishEvent(new DnsCheckRequiredEvent(this, true));
             }
         } catch (Exception e) {
