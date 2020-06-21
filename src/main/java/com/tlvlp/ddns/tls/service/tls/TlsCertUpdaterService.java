@@ -223,6 +223,7 @@ public class TlsCertUpdaterService {
                 if (challenge.getStatus() == Status.INVALID) {
                     log.error(String.format("Challenge failed for domain: %s %n%s %nWill attempt again in every 5 minutes until %s",
                             authDomain, challenge.getError(), attemptsEndTime));
+                    challenge.trigger();
                 }
                 challenge.update();
                 lastAttempt = LocalDateTime.now();
