@@ -1,0 +1,20 @@
+[
+  {
+    "registrar": "GODADDY",
+    "apiKey": "myapikey",
+    "domain": "mydomain1.com",
+    "userKeyPairRef": "TLS_CA_USER_KEYPAIR_SECRET",
+    "domainKeyPairRef": "TLS_CA_DOMAIN_KEYPAIR_SECRET",
+    "userEmail": "owner_email@email.com",
+    "domainsToCoverCsv": "*.mydomain.com"
+  },
+  {
+    "registrar": "GODADDY",
+    "apiKey": "myapikey",
+    "domain": "mydomain2.com",
+    "userKeyPairRef": "/ddns_tls_service/config/user.key",
+    "domainKeyPairRef": "/ddns_tls_service/config/domain.key",
+    "userEmail": "owner_email@email.com",
+    "domainsToCoverCsv": "bestservice.mydomain2.com, other.mydomain2.com"
+  }
+]

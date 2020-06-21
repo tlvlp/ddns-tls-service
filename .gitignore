@@ -30,6 +30,9 @@ out/
 
 ### VS Code ###
 .vscode/
-/src/main/resources/ddns_records.json
+
+### Test files ###
+/deployment/tls_test/
+/deployment/config_test/
 /src/test/java/RandomTest.java
-/deployment/ddns_records/ddns_records_live.json
+/src/main/resources/application-dev.properties

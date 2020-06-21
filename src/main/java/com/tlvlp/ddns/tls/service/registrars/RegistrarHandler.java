@@ -1,17 +1,18 @@
 package com.tlvlp.ddns.tls.service.registrars;
 
-import java.util.List;
+import com.tlvlp.ddns.tls.service.records.DnsRecord;
+import com.tlvlp.ddns.tls.service.records.DnsRecordDTO;
 
 public interface RegistrarHandler {
 
-    String getRecordContent(Record record);
-    String replaceRecordContent(Record record, String newContent);
+    String getRecordContent(DnsRecord dnsRecord);
+    String replaceRecordContent(DnsRecord dnsRecord, String newContent);
 
-    default RecordDTO convertRecordToDTO(Record record, String data) {
-        return new RecordDTO()
+    default DnsRecordDTO convertRecordToDTO(DnsRecord dnsRecord, String data) {
+        return new DnsRecordDTO()
                 .setTtl(600)
-                .setType(record.getType())
-                .setName(record.getName())
+                .setType(dnsRecord.getType())
+                .setName(dnsRecord.getName())
                 .setData(data);
     }
 }

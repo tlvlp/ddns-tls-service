@@ -1,4 +1,4 @@
-package com.tlvlp.ddns.tls.service.services;
+package com.tlvlp.ddns.tls.service.ddns;
 
 import org.springframework.context.ApplicationEvent;
 

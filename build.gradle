@@ -16,7 +16,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'com.konghq:unirest-java:3.7.02'
     implementation 'org.apache.commons:commons-lang3:3.10'
-    compile group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.11.0'
+    implementation group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.11.0'
+    //tls
+    implementation group: 'org.bouncycastle', name: 'bcprov-jdk15on', version: '1.65.01'
+    implementation group: 'org.shredzone.acme4j', name: 'acme4j-client', version: '2.9'
+    implementation group: 'org.shredzone.acme4j', name: 'acme4j-utils', version: '2.9'
     testImplementation('org.springframework.boot:spring-boot-starter-test') {
         exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
     }

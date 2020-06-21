@@ -1,6 +1,6 @@
 package com.tlvlp.ddns.tls.service;
 
-import com.tlvlp.ddns.tls.service.registrars.Record;
+import com.tlvlp.ddns.tls.service.records.DnsRecord;
 import com.tlvlp.ddns.tls.service.registrars.RegistrarHandler;
 import com.tlvlp.ddns.tls.service.registrars.Registrars;
 import org.junit.jupiter.api.Disabled;
@@ -16,8 +16,8 @@ class GoDaddyRegistrarHandlerTest {
     private final String testApiKey = "XXXX";
     private final String testApiSecret = "XXXX";
 
-    private Record getReferenceRecord() {
-        return new Record()
+    private DnsRecord getReferenceRecord() {
+        return new DnsRecord()
                 .setApiKey(testApiKey)
                 .setApiSecret(testApiSecret)
                 .setRegistrar(Registrars.GODADDY)
@@ -30,13 +30,13 @@ class GoDaddyRegistrarHandlerTest {
     public void replaceRecordContentTest() {
         //given
         RegistrarHandler registrarHandler = Registrars.GODADDY.getHandler();
-        Record record = getReferenceRecord();
+        DnsRecord dnsRecord = getReferenceRecord();
 
         // when
-        registrarHandler.replaceRecordContent(record, "updated");
+        registrarHandler.replaceRecordContent(dnsRecord, "updated");
 
         // then
-        String recordContent = registrarHandler.getRecordContent(record);
+        String recordContent = registrarHandler.getRecordContent(dnsRecord);
         assertThat(recordContent).isEqualTo("updated");
     }
 
@@ -44,10 +44,10 @@ class GoDaddyRegistrarHandlerTest {
     public void getRecordContentTest() {
         //given
         RegistrarHandler registrarHandler = Registrars.GODADDY.getHandler();
-        Record record = getReferenceRecord();
+        DnsRecord dnsRecord = getReferenceRecord();
 
         // when
-        String recordContent = registrarHandler.getRecordContent(record);
+        String recordContent = registrarHandler.getRecordContent(dnsRecord);
 
         // then - lo and behold the console output!
         System.out.println("contents: " + recordContent);

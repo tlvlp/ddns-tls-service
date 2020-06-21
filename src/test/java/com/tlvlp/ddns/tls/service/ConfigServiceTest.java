@@ -1,7 +1,6 @@
 package com.tlvlp.ddns.tls.service;
 
-import com.tlvlp.ddns.tls.service.SecretsLoaderMock;
-import com.tlvlp.ddns.tls.service.services.RecordService;
+import com.tlvlp.ddns.tls.service.records.ConfigService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -16,10 +15,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Disabled
 @SpringBootTest
 @ActiveProfiles("test")
-class RecordServiceTest {
+class ConfigServiceTest {
 
     @Autowired
-    private RecordService recordService;
+    private ConfigService configService;
 
     @Autowired
     private SecretsLoaderMock secretsLoaderMock;
@@ -39,10 +38,10 @@ class RecordServiceTest {
         //given a record service that has been initialized at startup with:
         // - Records read from a json file
         // - Records updated with apiSecrets from environment variables
-        recordService.checkRecordFileChanges();
+        configService.scheduledCheckRecordFileChanges();
 
         //when
-        var records = recordService.getDdnsRecords();
+        var records = configService.getDdnsRecords();
 
         //then
         assertThat(records)

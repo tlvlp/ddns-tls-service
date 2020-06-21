@@ -5,17 +5,20 @@ services:
     image: tlvlp/ddns-tls-service:latest
     volumes:
       - tls_volume:/ddns_tls_service/tls:rw
-      - /opt/ddns-tls-service/ddns_records:/ddns_tls_service/ddns_records:ro
+      - /opt/ddns-tls-service/config:/ddns_tls_service/config:ro
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
     secrets:
       - MY_API_KEY_COMES_HERE
     environment:
-      RECORDS_FILE_PATH: '/ddns_tls_service/ddns_records/ddns_records.json'
-      RECORD_UPDATE_SCHEDULE: '*/5 * * * * *'
-      IP_CHECK_SCHEDULE: '* */10 * * * *'
-      EXTERNAL_IP_API_CSV: 'http://checkip.amazonaws.com,https://myexternalip.com/raw'
       LOG_LEVEL_ROOT: 'INFO'
+      CONFIG_FOLDER_PATH: '/ddns_tls_service/config'
+      CONFIG_UPDATE_DELAY: '5000'
+      DDNS_SERVICE_ACTIVE: 'true'
+      DDNS_CHECK_SCHEDULE: '* */10 * * * *'
+      TLS_CERT_SERVICE_ACTIVE: 'true'
+      TLS_CERT_CHECK_SCHEDULE: '0 0 9 */1 * *'
+      TLS_CERT_FOLDER_PATH: '/ddns_tls_service/tls'
     deploy:
       replicas: 1
       restart_policy:

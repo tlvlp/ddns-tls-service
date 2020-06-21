@@ -1,7 +1,7 @@
-package com.tlvlp.ddns.tls.service.services;
+package com.tlvlp.ddns.tls.service.ddns;
 
-import com.tlvlp.ddns.tls.service.registrars.Record;
-import com.tlvlp.ddns.tls.service.registrars.RegistrarHandler;
+import com.tlvlp.ddns.tls.service.records.ConfigService;
+import com.tlvlp.ddns.tls.service.records.DnsUpdaterService;
 import kong.unirest.HttpResponse;
 import kong.unirest.Unirest;
 import org.slf4j.Logger;
@@ -16,34 +16,39 @@ import java.util.Arrays;
 import java.util.List;
 
 @Service
-public class DNSUpdaterService {
-    private static final Logger log = LoggerFactory.getLogger(DNSUpdaterService.class);
+public class DdnsService {
+    private static final Logger log = LoggerFactory.getLogger(DdnsService.class);
 
     private String previousIp;
     private final List<String> externalIpApiList;
-    private final RecordService recordService;
-    private final Boolean ddnsServiceActive;
+    private final ConfigService configService;
+    private final Boolean isServiceActive;
     private final ApplicationEventPublisher publisher;
+    private final DnsUpdaterService dnsUpdaterService;
 
-    public DNSUpdaterService(@Value("${ddns.service.active}") Boolean ddnsServiceActive,
-                             @Value("${external.ip.apis.csv}") String externalIpApiCsv,
-                             RecordService recordService,
-                             ApplicationEventPublisher publisher) {
-        this.recordService = recordService;
+    public DdnsService(@Value("${ddns.service.active}") Boolean isServiceActive,
+                       @Value("${ip.apis.csv}") String externalIpApiCsv,
+                       ConfigService configService,
+                       ApplicationEventPublisher publisher, DnsUpdaterService dnsUpdaterService) {
+        this.configService = configService;
         this.externalIpApiList = Arrays.asList(externalIpApiCsv.split(","));
-        this.ddnsServiceActive = ddnsServiceActive;
+        this.isServiceActive = isServiceActive;
         this.publisher = publisher;
+        this.dnsUpdaterService = dnsUpdaterService;
     }
 
-    @Scheduled(cron = "${ip.check.schedule}")
+    @Scheduled(cron = "${ddns.check.schedule}")
     public void scheduledDnsCheckAndUpdate() {
-        if(ddnsServiceActive) {
+        if(isServiceActive) {
             publisher.publishEvent(new DnsCheckRequiredEvent(this, false));
         }
     }
 
     @EventListener
     public void runDnsCheckAndUpdate(DnsCheckRequiredEvent event) {
+        if(!isServiceActive) {
+            return;
+        }
         try {
             log.debug("Running DDNS check.");
             String hostIp = getHostExternalIp();
@@ -51,7 +56,7 @@ public class DNSUpdaterService {
                 log.debug(String.format("Host IP matches previously saved IP(%s). No update required.", hostIp));
                 return;
             }
-            recordService.getDdnsRecords().forEach(record -> checkAndUpdateRecord(record, hostIp));
+            configService.getDdnsRecords().forEach(record -> dnsUpdaterService.checkAndUpdateRecord(record, hostIp));
             previousIp = hostIp;
         } catch (Exception e) {
             log.error("Unable to complete DDNS check: " + e.getMessage());
@@ -73,19 +78,6 @@ public class DNSUpdaterService {
         throw new RuntimeException(errorDetails);
     }
 
-    private void checkAndUpdateRecord(Record record, String hostIp) {
-        try {
-            RegistrarHandler registrarHandler = record.getRegistrar().getHandler();
-            String ipAtRegistrar = registrarHandler.getRecordContent(record);
-            if(hostIp.equals(ipAtRegistrar)) {
-                log.debug(String.format("Host IP(%s) matches record IP at registrar. No update required.", hostIp));
-                return;
-            }
-            registrarHandler.replaceRecordContent(record, hostIp);
-            log.info(String.format("Record at registrar updated with the host IP(%s -> %s): %s",ipAtRegistrar, hostIp, record));
-        } catch (Exception e) {
-            log.error(String.format("Unable to complete scheduled DDNS check or update for record: %s%n", record), e);
-        }
-    }
+
 
 }

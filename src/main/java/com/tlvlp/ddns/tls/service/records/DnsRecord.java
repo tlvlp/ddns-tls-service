@@ -1,28 +1,30 @@
-package com.tlvlp.ddns.tls.service.registrars;
+package com.tlvlp.ddns.tls.service.records;
 
-public class Record {
+import com.tlvlp.ddns.tls.service.registrars.Registrars;
 
-    private Registrars registrar;
-    private String apiKey;
-    private String apiSecret;
-    private String domain;
-    private String type;
-    private String name;
+public class DnsRecord {
 
-    public Record() {
+    protected Registrars registrar;
+    protected String apiKey;
+    protected String apiSecret;
+    protected String domain;
+    protected String type;
+    protected String name;
+
+    public DnsRecord() {
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Record)) return false;
+        if (!(o instanceof DnsRecord)) return false;
 
-        Record record = (Record) o;
+        DnsRecord dnsRecord = (DnsRecord) o;
 
-        if (registrar != record.registrar) return false;
-        if (!domain.equals(record.domain)) return false;
-        if (!type.equals(record.type)) return false;
-        return name.equals(record.name);
+        if (registrar != dnsRecord.registrar) return false;
+        if (!domain.equals(dnsRecord.domain)) return false;
+        if (!type.equals(dnsRecord.type)) return false;
+        return name.equals(dnsRecord.name);
     }
 
     @Override
@@ -49,7 +51,7 @@ public class Record {
         return registrar;
     }
 
-    public Record setRegistrar(Registrars registrar) {
+    public DnsRecord setRegistrar(Registrars registrar) {
         this.registrar = registrar;
         return this;
     }
@@ -58,7 +60,7 @@ public class Record {
         return apiKey;
     }
 
-    public Record setApiKey(String apiKey) {
+    public DnsRecord setApiKey(String apiKey) {
         this.apiKey = apiKey;
         return this;
     }
@@ -67,7 +69,7 @@ public class Record {
         return domain;
     }
 
-    public Record setDomain(String domain) {
+    public DnsRecord setDomain(String domain) {
         this.domain = domain;
         return this;
     }
@@ -76,7 +78,7 @@ public class Record {
         return type;
     }
 
-    public Record setType(String type) {
+    public DnsRecord setType(String type) {
         this.type = type;
         return this;
     }
@@ -85,7 +87,7 @@ public class Record {
         return name;
     }
 
-    public Record setName(String name) {
+    public DnsRecord setName(String name) {
         this.name = name;
         return this;
     }
@@ -94,7 +96,7 @@ public class Record {
         return apiSecret;
     }
 
-    public Record setApiSecret(String apiSecret) {
+    public DnsRecord setApiSecret(String apiSecret) {
         this.apiSecret = apiSecret;
         return this;
     }
