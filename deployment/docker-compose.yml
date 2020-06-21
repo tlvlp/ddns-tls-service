@@ -5,7 +5,7 @@ services:
     image: tlvlp/ddns-tls-service:latest
     volumes:
       - tls_volume:/ddns_tls_service/tls:rw
-      - /opt/ddns-tls-service/config:/ddns_tls_service/config:ro
+      - /opt/ddns-tls-service/config:/ddns_tls_service/config:rw
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
     secrets:
