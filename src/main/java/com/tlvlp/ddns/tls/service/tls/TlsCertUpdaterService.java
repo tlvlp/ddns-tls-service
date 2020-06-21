@@ -168,13 +168,22 @@ public class TlsCertUpdaterService {
             }
             log.info("Ordering certificates and waiting for CA (max 30sec).");
             order.execute(csr.getEncoded());
-            int attempts = 10;
-            while (order.getStatus() != Status.VALID && attempts-- > 0) {
+            LocalDateTime attemptsEndTime = LocalDateTime.now().plusHours(1);
+            LocalDateTime lastAttempt = null;
+            while (order.getStatus() != Status.VALID && LocalDateTime.now().isBefore(attemptsEndTime)) {
+                if (lastAttempt != null && lastAttempt.isAfter(LocalDateTime.now().minusMinutes(1))) {
+                    // Waiting between attempts
+                    continue;
+                }
+                if (order.getStatus() == Status.INVALID) {
+                    log.error(String.format("Order failed for record: %s %nWill attempt again in every 1 minutes until %s",
+                            record, attemptsEndTime));
+                }
                 if (order.getStatus() == Status.INVALID) {
                     throw new RuntimeException("Order failed.");
                 }
-                Thread.sleep(3000L);
                 order.update();
+                lastAttempt = LocalDateTime.now();
             }
             return order.getCertificate();
         } catch (Exception e) {
@@ -209,7 +218,7 @@ public class TlsCertUpdaterService {
             while (challenge.getStatus() != Status.VALID && LocalDateTime.now().isBefore(attemptsEndTime)) {
                 if (lastAttempt != null && lastAttempt.isAfter(LocalDateTime.now().minusMinutes(5))) {
                     // Waiting between attempts
-                    return;
+                    continue;
                 }
                 if (challenge.getStatus() == Status.INVALID) {
                     log.error(String.format("Challenge failed for domain: %s %n%s %nWill attempt again in every 5 minutes until %s",
