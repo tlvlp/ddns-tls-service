@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'com.tlvlp'
-version = '0.2'
+version = '1.0'
 sourceCompatibility = '11'
 
 repositories {
