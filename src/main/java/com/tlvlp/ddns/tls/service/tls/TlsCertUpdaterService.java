@@ -6,6 +6,7 @@ import com.tlvlp.ddns.tls.service.records.DnsUpdaterService;
 import org.shredzone.acme4j.*;
 import org.shredzone.acme4j.challenge.Dns01Challenge;
 import org.shredzone.acme4j.exception.AcmeException;
+import org.shredzone.acme4j.exception.AcmeRetryAfterException;
 import org.shredzone.acme4j.util.CSRBuilder;
 import org.shredzone.acme4j.util.KeyPairUtils;
 import org.slf4j.Logger;
@@ -24,7 +25,10 @@ import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPair;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 
 @Service
 public class TlsCertUpdaterService {
@@ -214,19 +218,19 @@ public class TlsCertUpdaterService {
 
             log.info("Waiting for response form the CA.");
             LocalDateTime attemptsEndTime = LocalDateTime.now().plusHours(1);
-            LocalDateTime lastAttempt = null;
+            LocalDateTime retryAfter = LocalDateTime.now().minusSeconds(1);
             while (challenge.getStatus() != Status.VALID && LocalDateTime.now().isBefore(attemptsEndTime)) {
-                if (lastAttempt != null && lastAttempt.isAfter(LocalDateTime.now().minusMinutes(5))) {
-                    // Waiting between attempts
+                if(LocalDateTime.now().isBefore(retryAfter)) {
                     continue;
                 }
-                if (challenge.getStatus() == Status.INVALID) {
-                    log.error(String.format("Challenge failed for domain: %s %n%s %nWill attempt again in every 5 minutes until %s",
-                            authDomain, challenge.getError(), attemptsEndTime));
-                    challenge.trigger();
+                try {
+                    challenge.update();
+                } catch (AcmeRetryAfterException retry) {
+                    Instant retryAfterInstant = retry.getRetryAfter();
+                    retryAfter = LocalDateTime.ofInstant(retryAfterInstant, ZoneId.systemDefault());
+                    log.info("Challenge retry time received from the CA: " + retryAfter);
+                    Thread.sleep(LocalDateTime.now().until(retryAfter, ChronoUnit.MILLIS));
                 }
-                challenge.update();
-                lastAttempt = LocalDateTime.now();
             }
 
             if (challenge.getStatus() != Status.VALID) {
