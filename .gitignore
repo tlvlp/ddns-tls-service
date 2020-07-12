@@ -37,3 +37,4 @@ out/
 /src/test/java/RandomTest.java
 /src/main/resources/application-dev.properties
 /logs/
+/src/test/java/com/tlvlp/ddns/tls/RandomTest.java

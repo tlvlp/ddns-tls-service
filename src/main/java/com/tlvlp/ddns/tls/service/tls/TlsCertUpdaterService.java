@@ -19,11 +19,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
-import java.nio.file.FileVisitResult;
-import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFilePermission;
 import java.security.KeyPair;
 import java.security.KeyStore;
@@ -31,6 +28,7 @@ import java.security.cert.X509Certificate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 @Service
 public class TlsCertUpdaterService {
@@ -296,35 +294,25 @@ public class TlsCertUpdaterService {
     }
 
     private void updateCertPermissions() {
-        try {
-            Files.walkFileTree(Path.of(certFolderPath), new FileVisitor<>() {
-
-                @Override
-                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                    return null;
-                }
-
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    // Grant read permissions to everyone (the access is limited with access to the volume)
-                    Files.setPosixFilePermissions(file, Set.of(PosixFilePermission.OTHERS_READ));
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-                    log.error("Failed to visit file: {}", file, exc);
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-                    return FileVisitResult.CONTINUE;
+        try(Stream<Path> pathStream = Files.walk(Path.of(certFolderPath),2)) {
+            pathStream.forEach(path -> {
+                try {
+                    Files.setPosixFilePermissions(path, Set.of(
+                            PosixFilePermission.OWNER_WRITE,
+                            PosixFilePermission.OWNER_READ,
+                            PosixFilePermission.OWNER_EXECUTE,
+                            PosixFilePermission.GROUP_READ,
+                            PosixFilePermission.GROUP_WRITE,
+                            PosixFilePermission.GROUP_EXECUTE,
+                            PosixFilePermission.OTHERS_READ,
+                            PosixFilePermission.OTHERS_EXECUTE
+                    ));
+                } catch (Exception e) {
+                    throw new RuntimeException("At file: " + path, e);
                 }
             });
-
         } catch (Exception e) {
-            throw new RuntimeException("Failed to update file permissions for the cert folder.", e);
+            throw new RuntimeException("Failed to update file permissions for the cert folder. ", e);
         }
 
     }
