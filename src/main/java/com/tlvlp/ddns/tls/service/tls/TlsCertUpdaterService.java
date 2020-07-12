@@ -19,13 +19,18 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.PosixFilePermission;
 import java.security.KeyPair;
 import java.security.KeyStore;
 import java.security.cert.X509Certificate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class TlsCertUpdaterService {
@@ -101,6 +106,7 @@ public class TlsCertUpdaterService {
             log.info("Certificate generated for domains {} (url: {})", record.getDomainsToCover(), cert.getLocation());
             saveCertificatesToFile(cert, record);
             saveP12KeysStoreToFile(cert, record, domainKeyPair);
+            updateCertPermissions();
         } catch (Exception e) {
             log.error("Error while running TLS certificate check and update for domain " + record.getDomain(), e);
         }
@@ -270,20 +276,56 @@ public class TlsCertUpdaterService {
             char[] keystorePass = record.getKeyStorePass().toCharArray();
             KeyStore pkcs12 = KeyStore.getInstance("PKCS12");
             pkcs12.load(null, keystorePass);
+
             // Get cert chain
             List<X509Certificate> certChainList = certificate.getCertificateChain();
             X509Certificate[] certChainArray = new X509Certificate[certChainList.size()];
             certChainArray = certChainList.toArray(certChainArray);
+
             // Save cert chain in keystore
             pkcs12.setKeyEntry("cert", domainKeyPair.getPrivate(), keystorePass, certChainArray);
+
             // Write keystore to file
             pkcs12.store(p12Writer, keystorePass);
             log.info("P12 Keystore generated and saved to: {}", keyStorePath);
+
         } catch (Exception e) {
             throw new RuntimeException("Failed to generate and save keystore file for domains: " + record.getDomainsToCover());
         }
 
     }
 
+    private void updateCertPermissions() {
+        try {
+            Files.walkFileTree(Path.of(certFolderPath), new FileVisitor<>() {
+
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                    return null;
+                }
+
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    // Grant read permissions to everyone (the access is limited with access to the volume)
+                    Files.setPosixFilePermissions(file, Set.of(PosixFilePermission.OTHERS_READ));
+                    return null;
+                }
+
+                @Override
+                public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+                    return null;
+                }
+
+                @Override
+                public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                    return null;
+                }
+            });
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to update file permissions for the cert folder.", e);
+        }
+
+    }
 
 }
