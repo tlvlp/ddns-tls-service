@@ -6,7 +6,8 @@
     "userKeyPairRef": "TLS_CA_USER_KEYPAIR_SECRET",
     "domainKeyPairRef": "TLS_CA_DOMAIN_KEYPAIR_SECRET",
     "userEmail": "owner_email@email.com",
-    "domainsToCoverCsv": "*.mydomain.com"
+    "domainsToCoverCsv": "*.mydomain.com",
+    "keyStorePass": "pass"
   },
   {
     "registrar": "GODADDY",
@@ -15,6 +16,7 @@
     "userKeyPairRef": "/ddns_tls_service/config/user.key",
     "domainKeyPairRef": "/ddns_tls_service/config/domain.key",
     "userEmail": "owner_email@email.com",
-    "domainsToCoverCsv": "bestservice.mydomain2.com, other.mydomain2.com"
+    "domainsToCoverCsv": "bestservice.mydomain2.com, other.mydomain2.com",
+    "keyStorePass": "pass"
   }
 ]
