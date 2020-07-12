@@ -6,7 +6,7 @@ import com.tlvlp.ddns.tls.service.records.DnsUpdaterService;
 import org.shredzone.acme4j.*;
 import org.shredzone.acme4j.challenge.Dns01Challenge;
 import org.shredzone.acme4j.exception.AcmeException;
-import org.shredzone.acme4j.exception.AcmeRetryAfterException;
+import org.shredzone.acme4j.toolbox.AcmeUtils;
 import org.shredzone.acme4j.util.CSRBuilder;
 import org.shredzone.acme4j.util.KeyPairUtils;
 import org.slf4j.Logger;
@@ -18,17 +18,14 @@ import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.StringReader;
-import java.io.Writer;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPair;
-import java.time.Instant;
+import java.security.KeyStore;
+import java.security.cert.X509Certificate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 @Service
 public class TlsCertUpdaterService {
@@ -67,6 +64,10 @@ public class TlsCertUpdaterService {
 
     @Scheduled(cron = "${tls.cert.check.schedule}")
     public void scheduledTlsCertCheckAndUpdate() {
+        if(isCheckRunning) {
+            log.info("Previous check is still running.");
+            return;
+        }
         if(isServiceActive) {
             publisher.publishEvent(new TlsCertCheckRequiredEvent(this));
         }
@@ -77,43 +78,42 @@ public class TlsCertUpdaterService {
         if(!isServiceActive) {
             return;
         }
-        if(isCheckRunning) {
-            log.info("Previous check is still running.");
-            return;
-        }
         log.info("Running scheduled TLS certificate update.");
-        configService.getTlsRecords().forEach(this::tlsCertCheckAndUpdate);
+        isCheckRunning = true;
+        configService.getTlsRecords().forEach(this::tlsCertUpdate);
         isCheckRunning = false;
     }
 
-    private void tlsCertCheckAndUpdate(DnsRecordTLS record) {
+    private void tlsCertUpdate(DnsRecordTLS record) {
         try {
-            isCheckRunning = true;
-            KeyPair userKeyPair = readOrGenerateKeyPair(record.getUserKeyPairRef());
-            KeyPair domainKeyPair = readOrGenerateKeyPair(record.getDomainKeyPairRef());
+            log.info("Updating certificate(s) for record: {}", record);
+            KeyPair userKeyPair = readOrGenerateKeyPair(record.getUserKeyPairRef(), configFolderPath);
+            KeyPair domainKeyPair = readOrGenerateKeyPair(record.getDomainKeyPairRef(), certFolderPath);
             Session letsEncryptSession = new Session(certProviderUrl);
             Account account = findOrRegisterAccount(letsEncryptSession, userKeyPair);
-            log.debug("Creating and saving signing request.");
+            log.info("Creating and saving a signing request.");
             CSRBuilder csr = new CSRBuilder();
             csr.addDomains(record.getDomainsToCover());
             csr.sign(domainKeyPair);
             saveCsrToFile(csr, record.getDomain());
-            log.debug("Ordering certificate.");
+            log.info("Ordering certificates");
             Certificate cert = orderCertificate(account, csr, record);
-            saveCertificateToFile(cert, record);
+            log.info("Certificate generated for domains {} (url: {})", record.getDomainsToCover(), cert.getLocation());
+            saveCertificatesToFile(cert, record);
+            saveP12KeysStoreToFile(cert, record, domainKeyPair);
         } catch (Exception e) {
             log.error("Error while running TLS certificate check and update for domain " + record.getDomain(), e);
         }
     }
 
-    private KeyPair readOrGenerateKeyPair(String keypairSourceRef) {
+    private KeyPair readOrGenerateKeyPair(String keypairSourceRef, String folderPath) {
         try {
             String keyPairString = checkForEnvVariable(keypairSourceRef);
             if(keyPairString == null) {
-                keyPairString = checkForFileBasedKey(keypairSourceRef, configFolderPath);
+                keyPairString = checkForFileBasedKey(keypairSourceRef, folderPath);
             }
             if(keyPairString == null) {
-                return generateAndSaveKeyPair(keypairSourceRef, configFolderPath);
+                return generateAndSaveKeyPair(keypairSourceRef, folderPath);
             }
             return KeyPairUtils.readKeyPair(new StringReader(keyPairString));
         } catch (Exception e) {
@@ -133,10 +133,10 @@ public class TlsCertUpdaterService {
         }
     }
 
-    private KeyPair generateAndSaveKeyPair(String caAuthKeyPairRef, String configFolder) {
+    private KeyPair generateAndSaveKeyPair(String caAuthKeyPairRef, String folderPath) {
         log.info("Generating new CA authentication key pair");
         KeyPair keyPair = KeyPairUtils.createKeyPair(2048);
-        try (FileWriter writer = new FileWriter(String.format("%s/%s", configFolder, caAuthKeyPairRef))) {
+        try (FileWriter writer = new FileWriter(String.format("%s/%s", folderPath, caAuthKeyPairRef))) {
             KeyPairUtils.writeKeyPair(keyPair, writer);
         } catch (IOException e) {
             throw new RuntimeException("Unable to save generated CA auth keypair!", e);
@@ -150,27 +150,27 @@ public class TlsCertUpdaterService {
                 .useKeyPair(accountKey)
                 .agreeToTermsOfService()
                 .create(session);
-        log.info("Registered a new user, URL: {}", account.getLocation());
-
+        log.info("User account URL: {}", account.getLocation());
         return account;
     }
 
     private void saveCsrToFile(CSRBuilder csr, String domainName) {
+        log.info("Saving CSR to file");
         try (Writer out = new FileWriter(String.format("%s/%s.csr", certFolderPath, domainName))) {
             csr.write(out);
         } catch (Exception e) {
-            log.error("Failed to save csr file for domain: " + domainName);
+            log.error("Failed to save csr file for domain: {}", domainName);
         }
     }
 
     private Certificate orderCertificate(Account account, CSRBuilder csr, DnsRecordTLS record) {
         try {
             Order order = account.newOrder().domains(record.getDomainsToCover()).create();
-            log.info("Obtaining authorization for the domains.");
+            log.info("Obtaining authorization for the domains");
             for (Authorization auth : order.getAuthorizations()) {
                 authorize(auth, record);
             }
-            log.info("Ordering certificates and waiting for CA (max 30sec).");
+            log.info("Ordering certificates and waiting for CA (max 30sec)");
             order.execute(csr.getEncoded());
             LocalDateTime attemptsEndTime = LocalDateTime.now().plusHours(1);
             LocalDateTime lastAttempt = null;
@@ -208,33 +208,28 @@ public class TlsCertUpdaterService {
             }
 
             // Update DNS record
+            String baseDomain = record.getDomain();
+            String subDomain = authDomain
+                    .replace("*", "")               // remove the wildcard (cert)
+                    .replace("." + baseDomain, "")  // remove the base domain that had a subdomain
+                    .replace(baseDomain, "");              // remove the base domain (the result should be empty for wildcard certs)
             record
                     .setType("TXT")
-                    .setName("_acme-challenge");
+                    .setName(String.format("_acme-challenge%s", subDomain.isEmpty() ? "" : "." + subDomain) );
             dnsUpdaterService.checkAndUpdateRecord(record, challenge.getDigest());
 
-            // Notify the CA to check the record and wait for the result
+            log.info("Waiting for response form the CA (with a 30sec initial delay)");
+            Thread.sleep(30 * 1000);
             challenge.trigger();
-
-            log.info("Waiting for response form the CA.");
-            LocalDateTime attemptsEndTime = LocalDateTime.now().plusHours(1);
-            LocalDateTime retryAfter = LocalDateTime.now().minusSeconds(1);
-            while (challenge.getStatus() != Status.VALID && LocalDateTime.now().isBefore(attemptsEndTime)) {
-                if(LocalDateTime.now().isBefore(retryAfter)) {
-                    continue;
-                }
-                try {
-                    challenge.update();
-                } catch (AcmeRetryAfterException retry) {
-                    Instant retryAfterInstant = retry.getRetryAfter();
-                    retryAfter = LocalDateTime.ofInstant(retryAfterInstant, ZoneId.systemDefault());
-                    log.info("Challenge retry time received from the CA: " + retryAfter);
-                    Thread.sleep(LocalDateTime.now().until(retryAfter, ChronoUnit.MILLIS));
-                }
+            int attempts = 10;
+            while (challenge.getStatus() != Status.VALID && attempts-- > 0) {
+                log.info("Authorization DNS Challenge has failed! Attempts left: {} status: {} error: {}", attempts, challenge.getStatus(), challenge.getError());
+                Thread.sleep(3000L);
+                challenge.update();
             }
 
             if (challenge.getStatus() != Status.VALID) {
-                throw new RuntimeException("Failed to pass the challenge for domain :" + authDomain);
+                throw new RuntimeException("Failed to pass the challenge for domain in 10 attempts:" + authDomain);
             }
             log.info("Authorization DNS Challenge was passed for domain :" + authDomain);
         } catch (Exception e) {
@@ -242,15 +237,50 @@ public class TlsCertUpdaterService {
         }
     }
 
-    private void saveCertificateToFile(Certificate certificate, DnsRecordTLS record) {
-        String domainName = record.getDomain();
-        String path = String.format("%s/%s_chain.crt", certFolderPath, domainName);
-        try (FileWriter fw = new FileWriter(path)) {
-            certificate.writeCertificate(fw);
-            log.info("Certificate generated and saved for domains {} at path {}", record.getDomainsToCover(), path);
-            log.info("Certificate URL: {}", certificate.getLocation());
+    private void saveCertificatesToFile(Certificate certificate, DnsRecordTLS record) {
+        log.debug("Saving certificates to file");
+        String pathBase = String.format("%s/%s", certFolderPath, record.getDomain());
+
+        String certPath = pathBase + ".crt";
+        try (FileWriter fw = new FileWriter(certPath)) {
+            AcmeUtils.writeToPem(certificate.getCertificate().getEncoded(), AcmeUtils.PemLabel.CERTIFICATE, fw);
+            log.info("Certificate saved to: {}", certPath);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to save certificate file for domain: " + domainName);
+            throw new RuntimeException("Failed to save certificate file for domains: " + record.getDomainsToCover());
+        }
+
+        String certChainPath = pathBase + "_chain.crt";
+        try (FileWriter fw = new FileWriter(certChainPath)) {
+            certificate.writeCertificate(fw);
+            log.info("Certificate chain saved to: {}", certChainPath);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to save certificate chain file for domains: " + record.getDomainsToCover());
+        }
+
+    }
+
+    private void saveP12KeysStoreToFile(Certificate certificate, DnsRecordTLS record, KeyPair domainKeyPair) {
+        log.debug("Generating and saving p12 keystore to file");
+        if(record.getKeyStorePass().isEmpty()) {
+            throw new RuntimeException("Field keyStorePass cannot be empty in record: " + record);
+        }
+        String keyStorePath =  String.format("%s/%s_keystore.p12", certFolderPath, record.getDomain());
+        try (FileOutputStream p12Writer = new FileOutputStream(keyStorePath)) {
+            // Create new keystore
+            char[] keystorePass = record.getKeyStorePass().toCharArray();
+            KeyStore pkcs12 = KeyStore.getInstance("PKCS12");
+            pkcs12.load(null, keystorePass);
+            // Get cert chain
+            List<X509Certificate> certChainList = certificate.getCertificateChain();
+            X509Certificate[] certChainArray = new X509Certificate[certChainList.size()];
+            certChainArray = certChainList.toArray(certChainArray);
+            // Save cert chain in keystore
+            pkcs12.setKeyEntry("cert", domainKeyPair.getPrivate(), keystorePass, certChainArray);
+            // Write keystore to file
+            pkcs12.store(p12Writer, keystorePass);
+            log.info("P12 Keystore generated and saved to: {}", keyStorePath);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate and save keystore file for domains: " + record.getDomainsToCover());
         }
 
     }

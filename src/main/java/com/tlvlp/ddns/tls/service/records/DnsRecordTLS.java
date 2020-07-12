@@ -11,6 +11,7 @@ public class DnsRecordTLS extends DnsRecord {
     private String userKeyPairRef;
     private String domainKeyPairRef;
     private String domainsToCoverCsv;
+    private String keyStorePass;
 
     public DnsRecordTLS() {
     }
@@ -26,6 +27,7 @@ public class DnsRecordTLS extends DnsRecord {
                 ", userEmail='" + userEmail + '\'' +
                 ", userKeyPairRef='" + userKeyPairRef + '\'' +
                 ", domainKeyPairRef='" + domainKeyPairRef + '\'' +
+                ", keyStorePass='" + keyStorePass + '\'' +
                 '}';
     }
 
@@ -134,6 +136,15 @@ public class DnsRecordTLS extends DnsRecord {
 
     public DnsRecordTLS setDomainsToCoverCsv(String domainsToCoverCsv) {
         this.domainsToCoverCsv = domainsToCoverCsv;
+        return this;
+    }
+
+    public String getKeyStorePass() {
+        return keyStorePass;
+    }
+
+    public DnsRecordTLS setKeyStorePass(String keyStorePass) {
+        this.keyStorePass = keyStorePass;
         return this;
     }
 }

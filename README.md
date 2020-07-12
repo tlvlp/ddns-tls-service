@@ -4,6 +4,7 @@
 
 ### DDNS
 Dynamic DNS for home servers or any machine that doesn't have a fixed IP.
+- Runs periodically at a given schedule
 - File-based configuration of  DNS dnsRecord details that are updated based on a configurable CRON schedule.
 - Handles any number of DNS dnsRecords under any number of different registrars / accounts.
 - Monitors the host machine's external IP with a configurable CRON schedule.
@@ -11,7 +12,10 @@ Dynamic DNS for home servers or any machine that doesn't have a fixed IP.
 
 ### TLS
 TLS certificate generator and maintainer
-- Creates TLS certificates for a given list of domains/dnsRecords and persists them to a docker volume
+- Runs periodically at a given schedule
+- Retrieves TLS certificates for a given list of dnsRecords/domains 
+- Generates a csr, cert, full chain cert and pkcs12 keystore with the full chain cert 
+- Persists them to a docker volume
 
 ## Supported registrars
 Currently GoDaddy is the only supported registrar, but the list can be extended 
@@ -62,4 +66,5 @@ A list of records that you wish to obtain certificates for.
 |"domainKeyPairRef" | Same as the user KP but for the given domain |
 |"userEmail" | Owner email address |
 |"domainsToCoverCsv" | Single domain ora a csv list for the subdomains to be certified |
+|"keyStorePass" | Password to be used to secure the p12 keystore. Note: The alias will be 'cert' in every case |
 

@@ -2,10 +2,11 @@ version: "3.7"
 
 services:
   service:
-    image: tlvlp/ddns-tls-service:latest
+    image: tlvlp/ddns-tls-service:1.1.0
     volumes:
       - tls_volume:/ddns_tls_service/tls:rw
       - /opt/ddns-tls-service/config:/ddns_tls_service/config:rw
+      - /opt/ddns-tls-service/logs:/ddns_tls_service/logs:rw
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
     secrets:
