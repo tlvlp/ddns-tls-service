@@ -6,7 +6,6 @@ import com.tlvlp.ddns.tls.service.records.DnsUpdaterService;
 import org.shredzone.acme4j.*;
 import org.shredzone.acme4j.challenge.Dns01Challenge;
 import org.shredzone.acme4j.exception.AcmeException;
-import org.shredzone.acme4j.exception.AcmeRetryAfterException;
 import org.shredzone.acme4j.util.CSRBuilder;
 import org.shredzone.acme4j.util.KeyPairUtils;
 import org.slf4j.Logger;
@@ -25,10 +24,7 @@ import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPair;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
 
 @Service
 public class TlsCertUpdaterService {
@@ -67,6 +63,10 @@ public class TlsCertUpdaterService {
 
     @Scheduled(cron = "${tls.cert.check.schedule}")
     public void scheduledTlsCertCheckAndUpdate() {
+        if(isCheckRunning) {
+            log.info("Previous check is still running.");
+            return;
+        }
         if(isServiceActive) {
             publisher.publishEvent(new TlsCertCheckRequiredEvent(this));
         }
@@ -77,18 +77,14 @@ public class TlsCertUpdaterService {
         if(!isServiceActive) {
             return;
         }
-        if(isCheckRunning) {
-            log.info("Previous check is still running.");
-            return;
-        }
         log.info("Running scheduled TLS certificate update.");
+        isCheckRunning = true;
         configService.getTlsRecords().forEach(this::tlsCertCheckAndUpdate);
         isCheckRunning = false;
     }
 
     private void tlsCertCheckAndUpdate(DnsRecordTLS record) {
         try {
-            isCheckRunning = true;
             KeyPair userKeyPair = readOrGenerateKeyPair(record.getUserKeyPairRef());
             KeyPair domainKeyPair = readOrGenerateKeyPair(record.getDomainKeyPairRef());
             Session letsEncryptSession = new Session(certProviderUrl);
@@ -208,33 +204,28 @@ public class TlsCertUpdaterService {
             }
 
             // Update DNS record
+            String baseDomain = record.getDomain();
+            String subDomain = authDomain
+                    .replace("*", "")               // remove the wildcard (cert)
+                    .replace("." + baseDomain, ""); // remove the base domain to leave the subdomain
             record
                     .setType("TXT")
-                    .setName("_acme-challenge");
+                    .setName(String.format("_acme-challenge%s", subDomain.isEmpty() ? "" : "." + subDomain) );
             dnsUpdaterService.checkAndUpdateRecord(record, challenge.getDigest());
 
             // Notify the CA to check the record and wait for the result
+            log.info("Waiting for response form the CA (with a 30sec initial delay");
+            Thread.sleep(30 * 1000);
             challenge.trigger();
-
-            log.info("Waiting for response form the CA.");
-            LocalDateTime attemptsEndTime = LocalDateTime.now().plusHours(1);
-            LocalDateTime retryAfter = LocalDateTime.now().minusSeconds(1);
-            while (challenge.getStatus() != Status.VALID && LocalDateTime.now().isBefore(attemptsEndTime)) {
-                if(LocalDateTime.now().isBefore(retryAfter)) {
-                    continue;
-                }
-                try {
-                    challenge.update();
-                } catch (AcmeRetryAfterException retry) {
-                    Instant retryAfterInstant = retry.getRetryAfter();
-                    retryAfter = LocalDateTime.ofInstant(retryAfterInstant, ZoneId.systemDefault());
-                    log.info("Challenge retry time received from the CA: " + retryAfter);
-                    Thread.sleep(LocalDateTime.now().until(retryAfter, ChronoUnit.MILLIS));
-                }
+            int attempts = 10;
+            while (challenge.getStatus() != Status.VALID && attempts-- > 0) {
+                log.info(String.format("DNS Challenge has failed status: %s error: %s", challenge.getStatus(), challenge.getError()));
+                Thread.sleep(3000L);
+                challenge.update();
             }
 
             if (challenge.getStatus() != Status.VALID) {
-                throw new RuntimeException("Failed to pass the challenge for domain :" + authDomain);
+                throw new RuntimeException("Failed to pass the challenge for domain in 10 attempts:" + authDomain);
             }
             log.info("Authorization DNS Challenge was passed for domain :" + authDomain);
         } catch (Exception e) {
