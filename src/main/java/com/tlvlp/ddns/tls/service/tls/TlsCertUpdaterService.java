@@ -207,14 +207,15 @@ public class TlsCertUpdaterService {
             String baseDomain = record.getDomain();
             String subDomain = authDomain
                     .replace("*", "")               // remove the wildcard (cert)
-                    .replace("." + baseDomain, ""); // remove the base domain to leave the subdomain
+                    .replace("." + baseDomain, "")  // remove the base domain that had a subdomain
+                    .replace(baseDomain, "");              // remove the base domain (the result should be empty for wildcard certs)
             record
                     .setType("TXT")
                     .setName(String.format("_acme-challenge%s", subDomain.isEmpty() ? "" : "." + subDomain) );
             dnsUpdaterService.checkAndUpdateRecord(record, challenge.getDigest());
 
             // Notify the CA to check the record and wait for the result
-            log.info("Waiting for response form the CA (with a 30sec initial delay");
+            log.info("Waiting for response form the CA (with a 30sec initial delay)");
             Thread.sleep(30 * 1000);
             challenge.trigger();
             int attempts = 10;
