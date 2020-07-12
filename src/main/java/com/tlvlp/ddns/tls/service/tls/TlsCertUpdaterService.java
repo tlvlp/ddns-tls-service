@@ -308,17 +308,18 @@ public class TlsCertUpdaterService {
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                     // Grant read permissions to everyone (the access is limited with access to the volume)
                     Files.setPosixFilePermissions(file, Set.of(PosixFilePermission.OTHERS_READ));
-                    return null;
+                    return FileVisitResult.CONTINUE;
                 }
 
                 @Override
                 public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-                    return null;
+                    log.error("Failed to visit file: {}", file, exc);
+                    return FileVisitResult.CONTINUE;
                 }
 
                 @Override
                 public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-                    return null;
+                    return FileVisitResult.CONTINUE;
                 }
             });
 
