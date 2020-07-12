@@ -36,3 +36,4 @@ out/
 /deployment/config_test/
 /src/test/java/RandomTest.java
 /src/main/resources/application-dev.properties
+/logs/
