@@ -223,7 +223,7 @@ public class TlsCertUpdaterService {
             challenge.trigger();
             int attempts = 10;
             while (challenge.getStatus() != Status.VALID && attempts-- > 0) {
-                log.info("DNS Challenge has failed status: {} error: {}", challenge.getStatus(), challenge.getError());
+                log.info("Authorization DNS Challenge has failed! Attempts left: {} status: {} error: {}", attempts, challenge.getStatus(), challenge.getError());
                 Thread.sleep(3000L);
                 challenge.update();
             }
